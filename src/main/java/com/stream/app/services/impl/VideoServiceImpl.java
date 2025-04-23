@@ -17,7 +17,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
-import java.util.logging.Logger;
 
 @Service
 public class VideoServiceImpl implements VideoService {
@@ -70,17 +69,12 @@ public class VideoServiceImpl implements VideoService {
     }
 
     @Override
-    public Video getVideo(String videoId) {
-        return null;
-    }
-
-    @Override
-    public Video getVideoByTitle(String title) {
-        return null;
-    }
-
-    @Override
     public List<Video> getAllVideos() {
-        return List.of();
+        return videoRepository.findAll();
+    }
+
+    @Override
+    public Video getVideoById(String videoId) {
+       return videoRepository.findById(videoId).orElseThrow(()->new RuntimeException("Video Not Found"));
     }
 }

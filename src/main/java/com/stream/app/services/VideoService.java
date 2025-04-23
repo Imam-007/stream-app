@@ -9,9 +9,7 @@ public interface VideoService {
 
     public Video addVideo(Video video, MultipartFile file);
 
-    public Video getVideo(String videoId);
-
-    public Video getVideoByTitle(String title);
-
     public List<Video> getAllVideos();
+
+    Video getVideoById(String videoId);
 }
