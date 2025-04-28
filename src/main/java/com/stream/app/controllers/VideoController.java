@@ -3,6 +3,7 @@ package com.stream.app.controllers;
 import com.stream.app.entities.Video;
 import com.stream.app.io.CreateResponse;
 import com.stream.app.services.VideoService;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
@@ -26,6 +27,7 @@ import java.util.UUID;
 public class VideoController {
 
     private final VideoService videoService;
+    private static final int CHUNK_SIZE = 1024 * 1024;
 
     public VideoController(VideoService videoService) {
         this.videoService = videoService;
@@ -114,40 +116,49 @@ public class VideoController {
         String[] ranges = range.replace("bytes=", "").split("-");
         startRange = Long.parseLong(ranges[0]);
 
-        if (ranges.length > 1) {
-            endRange = Long.parseLong(ranges[1]);
-        } else {
+        endRange = startRange + CHUNK_SIZE - 1;
+
+        if (endRange >= fileLength){
             endRange = fileLength - 1;
         }
 
-        if (endRange > fileLength - 1){
-            endRange = fileLength - 1;
-        }
+//        if (ranges.length > 1) {
+//            endRange = Long.parseLong(ranges[1]);
+//        } else {
+//            endRange = fileLength - 1;
+//        }
+//
+//        if (endRange > fileLength - 1){
+//            endRange = fileLength - 1;
+//        }
 
         InputStream inputStream;
 
         try {
             inputStream = Files.newInputStream(path);
             inputStream.skip(startRange);
+            long contentLength = endRange - startRange + 1;
+
+            byte[] data = new byte[(int) contentLength];
+            int read = inputStream.read(data, 0, data.length);
+
+            HttpHeaders httpHeaders = new HttpHeaders();
+            httpHeaders.add("Content-Range", "bytes " + startRange + "-" + endRange + "/" + fileLength);
+            httpHeaders.add("Cache-Control", "no-cache, no-store, must-revalidate");
+            httpHeaders.add("Pragma", "no-cache");
+            httpHeaders.add("Expires", "0");
+            httpHeaders.add("X-Content-Type-Options", "nosniff");
+            httpHeaders.setContentLength(contentLength);
+
+            return ResponseEntity
+                    .status(HttpStatus.PARTIAL_CONTENT)
+                    .headers(httpHeaders)
+                    .contentType(MediaType.parseMediaType(contentType))
+                    .body(new ByteArrayResource(data));
         } catch (IOException e) {
             return ResponseEntity
                     .status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .build();
         }
-
-        Long contentLength = endRange - startRange + 1;
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.add("Content-Range", "bytes " + startRange + "-" + endRange + "/" + fileLength);
-        httpHeaders.add("Cache-Control", "no-cache, no-store, must-revalidate");
-        httpHeaders.add("Pragma", "no-cache");
-        httpHeaders.add("Expires", "0");
-        httpHeaders.add("X-Content-Type-Options", "nosniff");
-        httpHeaders.setContentLength(contentLength);
-
-        return ResponseEntity
-                .status(HttpStatus.PARTIAL_CONTENT)
-                .headers(httpHeaders)
-                .contentType(MediaType.parseMediaType(contentType))
-                .body(new InputStreamResource(inputStream));
     }
 }
